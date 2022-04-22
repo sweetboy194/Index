@@ -1,6 +1,504 @@
-<p>Thien than so do</p>
-<ul><li>Jav top 1</li>
-<li>Jav top 2</li>
-<li>Jav top 3</li></ul>
-<ul><li>Maria Ozawa</li>
-<li>Nakamichi</li></ul>
+@php
+    $dataHref = $blockData["data-href"] ?? null;
+    $articleObject = $blockData["articleObject"] ?? null;
+    $articleId = $blockData["article_id"] ?? null;
+    $articleRelatedToOtherArticles = $blockData["articleRelatedToOtherArticles"] ?? null;
+    $admin = Auth::guard('admin')->user();
+    $attribute = $blockData["attribute"] ?? null;
+
+@endphp
+
+<div class="form-group">
+    <label for="eye_catch_image" class="col-sm-2  control-label">{{isset($attribute['title']) ? $attribute['title']: ''}}</label>
+    <div class="col-sm-8">
+        {{--<div class="progress progress-sm active image-progress" style="display: none;">--}}
+        {{--<div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar"--}}
+        {{--aria-valuenow="0"--}}
+        {{--aria-valuemin="0"--}}
+        {{--aria-valuemax="100"--}}
+        {{--style="width: 0%">--}}
+        {{--<span class="sr-only">20% Complete</span>--}}
+        {{--</div>--}}
+        {{--</div>--}}
+        <input type="file" class="form-control e-block-space image-ajax"
+               data-href="{{$dataHref ? $dataHref : ''}}"
+               value="{{$articleObject ? $articleObject->id : ''}}"
+               data-article-id="{{ $articleId ?? '' }}"
+               data-article-object="{{ $articleObject ? $articleObject->id : '' }}"
+               data-description="{{$articleObject->description ?? ''}}"
+               data-referrer="{{$articleObject->referrer ?? ''}}"
+               name="{{$attribute['name'] ? $attribute['name'] : ''}}"
+            {{--               accept="image/*"--}}
+        />
+        <input type="hidden" name="eye_catch_image_delete" value="0">
+    </div>
+</div>
+
+@if($articleRelatedToOtherArticles && $admin->role == 1)
+    <div id="related-article-end-page" style="display: none">
+        <div class="box box-info">
+            <div class="box-header with-border">関連づけされている記事</div>
+            <div class="box-body">
+                <div>
+                    @foreach($articleRelatedToOtherArticles as $articleRelatedToOtherArticle)
+                        <li class="nav-item nav-related-article ui-state-default"
+                            id="{{$articleRelatedToOtherArticle->relation_id}}">
+                            <a class="nav-link article-related-link-bottom" href="{{route("article.edit", [
+                                'slug' => $articleRelatedToOtherArticle->slug,
+                                'article_id' => $articleRelatedToOtherArticle->article_id,
+                                ])}}" target="_blank">
+                                {{$articleRelatedToOtherArticle->title}} ({{$articleRelatedToOtherArticle->name}})
+                            </a>
+                        </li>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
+<style>
+    .modal_form .kv-file-content {
+        margin: 0 auto;
+    }
+
+    .modal_form .krajee-default.file-preview-frame {
+        float: none;
+    }
+
+    .modal_form .file-footer-caption {
+        margin-bottom: 0;
+    }
+
+    .modal_form .kv-file-content {
+        width: 60% !important;
+        height: auto !important;
+    }
+
+    .modal_form .krajee-default .file-footer-buttons {
+        margin-right: 20px;
+    }
+
+    .modal_form .file-upload-indicator {
+        display: none;
+    }
+
+    .warning-text {
+        text-align: left !important;
+    }
+</style>
+
+{{--Maybe Laravel-admin package got error when render html by javascript string
+so need create another javascript file to render html--}}
+<script src="{{ asset('js/admin/article/upload_image_modal.js') }}"></script>
+<script>
+    $(function () {
+        $(document).ready(function () {
+            $('.content-wrapper').on('click', '.kv-file-remove', function (e) {
+                let input = $(this).closest('.file-input').find('.image-ajax');
+                if (input.length <= 0) {
+                    input = $(this).closest('.file-input').find('.modal-image-ajax');
+                }
+
+                let inputName = "",
+                    dataHref = input.attr('data-href'),
+                    dataArticleObject = input.attr('data-article-object'),
+                    dataDescription = input.attr('data-description'),
+                    dataReferrer = input.attr('data-referrer'),
+                    dataArticleTypeCF = input.attr('data-article-type-cf');
+
+                if (input.attr("name") === 'eye_catch_image' || input.attr("name") === 'eye_catch_image_modal') {
+                    $("input[name=eye_catch_image_delete]").attr("value", "1");
+                    inputName = "eye_catch_image";
+                } else {
+                    input.parent().append('<input type="hidden" name="image_delete[' + dataArticleTypeCF + ']" ' +
+                        'value="' + input.attr('data-article-object') + '"/>');
+                    inputName = "input_name_image";
+                }
+
+                $("input[data-article-object=" + input.attr('data-article-object') + "]").each(function (i, obj) {
+                    // $(obj).attr('data-article-object', '');
+                    $(obj).attr("data-href", '');
+                    $(obj).attr("data-description", '');
+                    $(obj).attr("data-referrer", '');
+                    $(obj).fileinput('clear');
+                    $('#modalForm').modal('hide');
+
+                    // $(obj).closest('.input-group-append').prepend(`<a tabindex="500" title="Abort ongoing delete"
+                    //             class="btn btn-default btn-secondary kv-hidden fileinput-cancel-delete-button" data-name="${inputName}"
+                    //             data-href="${dataHref}" data-article-object="${dataArticleObject}" data-article-type-cf="${dataArticleTypeCF}"
+                    //             data-description="${dataDescription}" data-referrer="${dataReferrer}">
+                    //         <i class="fa fa-refresh" aria-hidden="true"></i>
+                    //         <span class="hidden-xs">取消</span>
+                    //     </a>`);
+                });
+            });
+
+            //When click cancel delete button
+            $('.content-wrapper').on('click', '.fileinput-cancel-delete-button', function (e) {
+                let input = $(this).parent().find('.image-ajax'),
+                    dataHref = $(this).attr("data-href"),
+                    dataArticleObject = $(this).attr("data-article-object"),
+                    dataArticleTypeCF = $(this).attr('data-article-type-cf');
+
+                input.attr("data-href", dataHref);
+                input.attr("data-description", $(this).attr("data-description"));
+                input.attr("data-referrer", $(this).attr("data-referrer"));
+
+                $(this).remove();
+
+                let name = $(this).attr('data-name');
+                if (name === "eye_catch_image") {
+                    $("input[name=eye_catch_image_delete]").attr("value", "0");
+                } else {
+                    $("input[name='image_delete[" + dataArticleTypeCF + "]']").remove();
+                }
+
+                // let arrayLink = dataHref.split("/"),
+                //     fileName = arrayLink[arrayLink.length - 1];
+
+                $("input[data-article-object=" + dataArticleObject + "]").each(function (i, obj) {
+
+                    // if ($(obj).length > 0) {
+                    $(obj).fileinput('destroy').fileinput({
+                        showClose: false,
+                        allowedFileExtensions: ["jpg", "jpeg", "png", "gif", "pdf", "pptx"],
+                        validateInitialCount: true,
+                        maxFileCount: 1,
+                        maxFileSize: 300000,
+                        overwriteInitial: true,
+                        initialPreviewAsData: true,
+                        browseLabel: "\u53c2\u7167",
+                        cancelLabel: "\u53d6\u6d88",
+                        showRemove: false,
+                        showUpload: false,
+                        showCancel: false,
+                        dropZoneEnabled: false,
+                        fileActionSettings: {
+                            showRemove: true,
+                            showDrag: false
+                        },
+                        msgPlaceholder: "{{ trans('admin.choose_file') }}",
+                        allowedFileTypes: ["image"],
+                        initialPreview: dataHref,
+                        initialPreviewConfig: [
+                            {
+                                type: "image",
+                                caption: fileName,
+                                // url: "delete-image",
+                                key: 1,
+                            }
+                        ]
+                    });
+                    // }
+                });
+            });
+
+            //add div to add form modal
+            const modalForm = $('.modal_form');
+            if (modalForm.length === 0) {
+                $('#app').append(renderModal());
+            }
+
+            $.initImage = function (elm, type) {
+                let element = $(elm);
+                var fileName = "";
+                var hrefData = $(elm).attr("data-href");
+                if (hrefData != "" && typeof hrefData != "undefined") {
+                    // var arrayLink = hrefData.split("/");
+                    // fileName = arrayLink[arrayLink.length - 1];
+                }
+                var initialPreviewConfig = type === 'object' ? "text" : "image";
+                $(elm).fileinput({
+                    showClose: false,
+                    overwriteInitial: true,
+                    initialPreviewAsData: true,
+                    browseLabel: "\u53c2\u7167",
+                    cancelLabel: "\u53d6\u6d88",
+                    showRemove: false,
+                    showUpload: false,
+                    showCancel: false,
+                    dropZoneEnabled: false,
+                    fileActionSettings: {
+                        showRemove: true,
+                        showDrag: false
+                    },
+                    msgPlaceholder: "{{ trans('admin.choose_file') }}",
+                    allowedFileTypes: type === 'image',
+                    initialPreview: hrefData,
+                    initialPreviewConfig: [{
+                        type: initialPreviewConfig,
+                        caption: fileName,
+                        // url: "delete-image",
+                        key: 1,
+                    }]
+                });
+            };
+            $(".image-ajax").each(function (i, obj) {
+                $.initImage(obj, $(this).attr('data-type'));
+            });
+
+            $('.content').on('click', '.image-ajax', function (e) {
+                // e.preventDefault();
+
+                // let trans_description = '{{ trans('admin.article_object.description') }}';
+                // let trans_referrer = '{{ trans('admin.article_object.referrer') }}';
+
+                let elm = $(this),
+                    type = elm.attr('data-type'),
+                    imageHrefData = elm.attr("data-href"),
+                    imageValue = elm.attr("value"),
+                    objectId = elm.attr("data-article-object"),
+                    articleId = elm.attr("data-article-id"),
+                    articleTypeCFId = elm.attr("data-article-type-cf"),
+                    objectDescription = typeof elm.attr("data-description") !== "undefined" ? elm.attr("data-description") : '',
+                    objectReferrer = typeof elm.attr("data-referrer") !== "undefined" ? elm.attr("data-referrer") : '',
+                    objectAlt = elm.attr("data-alt"),
+                    required = typeof elm.attr("required") !== "undefined" ? elm.attr("required") : "",
+                    inputEyeCatchImage = elm.attr("name") === 'eye_catch_image' ? '<input name="request_eye_catch_image" id="request_eye_catch_image" type="hidden" value="1">' : '',
+                    fileName = "";
+
+
+                if (imageHrefData !== "" && typeof imageHrefData !== "undefined") {
+                    // let arrayLink = imageHrefData.split("/");
+                    // fileName = arrayLink[arrayLink.length - 1];
+                }
+                let initialPreviewConfig = type === 'object' ? "text" : "image";
+
+                $('.modal_form .modal-content').html(renderModalContent(imageHrefData, imageValue, required,
+                    objectId, inputEyeCatchImage, articleId, articleTypeCFId,
+                    objectDescription, objectReferrer, trans_description, trans_referrer));
+                $('#modalForm').modal('show');
+
+                $('.modal-image-ajax').fileinput({
+                    showClose: false,
+                    allowedFileExtensions: ["jpg", "jpeg", "png", "gif", "pdf","pptx"],
+                    validateInitialCount: true,
+                    maxFileCount: 1,
+                    maxFileSize: 300000,
+                    overwriteInitial: true,
+                    initialPreviewAsData: true,
+                    browseLabel: "\u53c2\u7167",
+                    cancelLabel: "\u53d6\u6d88",
+                    showRemove: false,
+                    showUpload: false,
+                    showCancel: false,
+                    dropZoneEnabled: false,
+                    fileActionSettings: {
+                        showRemove: true,
+                        showDrag: false
+                    },
+                    msgPlaceholder: "{{ trans('admin.choose_file') }}",
+                    allowedFileTypes: type === 'object' ? ["object"] : ["image"],
+                    initialPreview: imageHrefData,
+                    initialPreviewConfig: [
+                        {
+                            type: initialPreviewConfig,
+                            caption: fileName,
+                            // url: "delete-image",
+                            key: 1,
+                        }
+                    ]
+                });
+            });
+
+            $(document).on('submit', 'form.modal-image-upload', function (e) {
+                e.preventDefault();
+                let elm = null,
+                    urlAjax = '',
+                    type = null,
+                    initialPreviewConfig = null;
+
+                // check is_preview
+                var isPreview = false;
+                let searchParams = new URLSearchParams(window.location.search);
+
+                if (searchParams.has('is_preview')) {
+                    isPreview = true
+                }
+
+                //if upload image for eye_catch_image
+                if ($(this).find('input#request_eye_catch_image').length !== 0) {
+                    elm = $('input[name="eye_catch_image"]');
+                    if (isPreview) {
+                        urlAjax = "{{ route('admin.usage_guide.upfile', [
+                            'is_preview' => 'true'
+                            ]
+                            )}}";
+                    } else {
+                        urlAjax = "{{ route('admin.usage_guide.upfile') }}";
+                    }
+                    type = "image";
+                    initialPreviewConfig = "image";
+                } else {
+                    let value = $(this).find('input.article_type_cf_id').attr('value');
+                    elm = $('[data-article-type-cf=' + value + ']');
+                    if (isPreview) {
+                        urlAjax = "{{ route("admin.usage_guide.upfile", ['slug' => 'noticeImage',
+                            'is_preview' => 'true'])}}";
+                    } else {
+                        urlAjax = "{{ route("admin.usage_guide.upfile", ['slug' => 'noticeImage']) }}";
+                    }
+                    type = elm.attr('data-type');
+                    initialPreviewConfig = type === 'object' ? "text" : "image";
+                }
+
+                let formData = new FormData();
+                if (typeof $('.modal-image-ajax')[0].files[0] !== 'undefined') {
+                    formData.append('image', $('.modal-image-ajax')[0].files[0]);
+                }
+                $(this).serializeArray().forEach(element => {
+                    formData.append(element.name, element.value);
+                });
+
+                var progress = $(this).find('.progress-sm');
+                progress.show();
+                var progressBar = progress.find(".progress-bar");
+
+                $.ajax({
+                    method: 'POST',
+                    type: "POST",
+                    url: urlAjax,
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    xhr: function () {
+                        let xhr = new window.XMLHttpRequest();
+                        xhr.upload.addEventListener("progress", function (evt) {
+                            if (evt.lengthComputable) {
+                                var percentComplete = evt.loaded / evt.total;
+                                percentComplete = parseInt(percentComplete * 100);
+                                progressBar.css("width", percentComplete + "%");
+                                if (percentComplete === 100) {
+                                    progress.removeClass("active");
+                                }
+                            }
+                        }, false);
+                        return xhr;
+                    },
+                }).done(function (res) {
+                    elm.attr('data-description', res.data.description ? res.data.description : "");
+                    elm.attr('data-referrer', res.data.referrer ? res.data.referrer : "");
+
+                    // let arrayLink = res.data.path.split("/"),
+                    //     fileName = arrayLink[arrayLink.length - 1];
+
+                    if (res.action === 'create') {
+                        elm.attr('data-article-object', res.data.id);
+                        elm.attr('data-href', res.data.path);
+                        elm.removeAttr('required');
+
+                        $("input[data-article-object=" + res.data.id + "]").each(function (i, obj) {
+                            $(obj).fileinput('destroy').fileinput({
+                                showClose: false,
+                                allowedFileExtensions: ["jpg", "jpeg", "png", "gif", "pdf","pptx"],
+                                validateInitialCount: true,
+                                maxFileCount: 1,
+                                maxFileSize: 300000,
+                                overwriteInitial: true,
+                                initialPreviewAsData: true,
+                                browseLabel: "\u53c2\u7167",
+                                cancelLabel: "\u53d6\u6d88",
+                                showRemove: false,
+                                showUpload: false,
+                                showCancel: false,
+                                dropZoneEnabled: false,
+                                fileActionSettings: {
+                                    showRemove: true,
+                                    showDrag: false
+                                },
+                                msgPlaceholder: "{{ trans('admin.choose_file') }}",
+                                allowedFileTypes: type === 'object',
+                                initialPreview: res.data.path,
+                                initialPreviewConfig: [
+                                    {
+                                        type: initialPreviewConfig,
+                                        caption: fileName,
+                                        // url: "delete-image",
+                                        key: 1,
+                                    }
+                                ]
+                            });
+                        });
+                    }
+                    progress.hide();
+                    $('#modalForm').modal('hide');
+                }).error(function (err) {
+                    alert('Something wrong, please try upload file again!');
+                    progress.hide();
+                });
+            });
+
+            $('.post_form').on('ifChecked', function (event) {
+                if ($(this).val() == 0) {
+                    $('.form_templates').next(".select2-container").hide();
+                } else {
+                    $('.form_templates').next(".select2-container").show();
+                }
+            });
+
+            // For change value description
+            var description = $('textarea[name ="description"]');
+            var value = description.attr('value');
+            description.val(value);
+
+
+            $('.form-horizontal').submit(function (e) {
+                $(".image-ajax").each(function (i, obj) {
+                    var value = $(this).attr("data-id");
+                    var oldValue = $(this).attr("data-old-value");
+                    if (oldValue) {
+                        value = oldValue + '|' + value;
+                    }
+                    if (value) {
+                        $("<input />").attr("type", "hidden")
+                            .attr("name", $(this).attr("name"))
+                            .attr("value", value)
+                            .appendTo($('.form-horizontal'));
+                        // $(this).remove();
+                    } else {
+                        $("<input />").attr("type", "hidden")
+                            .attr("name", $(this).attr("name"))
+                            .attr("value", null)
+                            .appendTo($('.form-horizontal'));
+                        // $(this).remove();
+                    }
+                });
+
+                var loopFields = [];
+                $(this).find(`[data-input-block='true']`).each(function () {
+                    var oldName = $(this).attr('name');
+                    var name = oldName.substr(0, oldName.lastIndexOf("["));
+                    loopFields.push(name);
+                });
+
+                $("<input />").attr("type", "hidden")
+                    .attr("name", 'loop-fields')
+                    .attr("value", loopFields)
+                    .appendTo($('.form-horizontal'));
+            });
+
+            // remove end_date default value
+            // if ($("#end_date").val() === '2500-12-31 23:59:59' || $("#end_date").val() === '2500-12-31')
+            //     $('#end_date').attr('value', '');
+
+            // add warning text to end_date and open_date
+            // $('#end_date').after('<p class="col-sm-6 control-label warning-text">省略時は無期限となります</p>');
+            // $('#open_date').after('<p class="col-sm-6 control-label warning-text">省略時は記事公開日と同じ値になります</p>');
+
+            // add related article at end of page
+            // var relatedArticle = $('#related-article-end-page').html();
+            // var totalRelatedArticle = $('.article-related-link-bottom').length;
+            // if (totalRelatedArticle > 0) {
+            //     $('.content').append(relatedArticle);
+            // }
+        });
+
+        // temporary remove required check when submit
+        // $("button[type=submit]").attr('formnovalidate', 'formnovalidate');
+    });
+
+</script>
